@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1034544032360",
+    "project_id": "mindhivepodcast"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1034544032360:android:907aa975ee283fe2",
+        "android_client_info": {
+          "package_name": "com.example.yardenbourg.mindhivepodcast"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1034544032360-77i32koq929kdrqsj82uhd39vbqii6t2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.yardenbourg.mindhivepodcast",
+            "certificate_hash": "033FA382D553DC97328C7F549570FB990D0F10ED"
+          }
+        },
+        {
+          "client_id": "1034544032360-323ka56tm8iokpc2rhc7na08h70mcdcq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyASp0xGQEuLEo09dYda-68mAdm5P3EmyIA"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 1
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
