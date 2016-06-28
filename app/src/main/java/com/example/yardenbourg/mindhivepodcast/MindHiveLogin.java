@@ -116,6 +116,7 @@ public class MindHiveLogin extends AppCompatActivity implements GoogleApiClient.
                 mAuthCodeTextView.setText(getString(R.string.auth_code_fmt, authCode));
                 updateUI(true);
 
+
                 // TODO(user): send code to server and exchange for access/refresh/ID tokens.
             } else {
 
