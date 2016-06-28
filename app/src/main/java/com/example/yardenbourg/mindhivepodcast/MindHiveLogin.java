@@ -10,6 +10,8 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.amazonaws.auth.CognitoCachingCredentialsProvider;
+import com.amazonaws.regions.Regions;
 import com.google.android.gms.auth.GoogleAuthUtil;
 import com.google.android.gms.auth.api.Auth;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
@@ -24,7 +26,6 @@ import com.google.android.gms.common.api.OptionalPendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Scope;
 import com.google.android.gms.common.api.Status;
-import com.google.android.gms.plus.Account;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -97,9 +98,6 @@ public class MindHiveLogin extends AppCompatActivity implements GoogleApiClient.
      * Method that handles the result from the activity started by the above Intent.
      * It gets the auth code if successful and displays it in the TextView. Here the authentication
      * code is also sent to the Amazon server to be validated.
-     * @param requestCode
-     * @param resultCode
-     * @param data
      */
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -113,9 +111,9 @@ public class MindHiveLogin extends AppCompatActivity implements GoogleApiClient.
 
                 GoogleSignInAccount acct = result.getSignInAccount();
 
-                String idToken = acct.getIdToken();
                 String authCode = acct.getServerAuthCode();
 
+                mAuthCodeTextView.setText(getString(R.string.auth_code_fmt, authCode));
                 updateUI(true);
 
                 // TODO(user): send code to server and exchange for access/refresh/ID tokens.
@@ -158,7 +156,6 @@ public class MindHiveLogin extends AppCompatActivity implements GoogleApiClient.
 
     /**
      * Method to handle failed connections
-     * @param connectionResult
      */
     @Override
     public void onConnectionFailed(ConnectionResult connectionResult) {
@@ -169,7 +166,6 @@ public class MindHiveLogin extends AppCompatActivity implements GoogleApiClient.
 
     /**
      * Method to update the UI to show sign-in or sign-out options.
-     * @param signedIn
      */
     private void updateUI(boolean signedIn) {
 

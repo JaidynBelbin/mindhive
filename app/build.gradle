@@ -11,6 +11,7 @@ android {
         targetSdkVersion 23
         versionCode 1
         versionName "1.0"
+        multiDexEnabled true
     }
 
     buildTypes {
@@ -25,10 +26,9 @@ dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     testCompile 'junit:junit:4.12'
     compile 'com.android.support:appcompat-v7:23.0.1'
-    compile 'com.google.android.gms:play-services:9.0.0'
-    compile 'com.amazonaws:aws-android-sdk-core:2.2.0'
-    compile 'com.amazonaws:aws-android-sdk-s3:2.2.0'
-    compile 'com.amazonaws:aws-android-sdk-cognitoidentityprovider:2.2.+'
+    compile 'com.google.android.gms:play-services-auth:9.0.2'
+    compile 'com.amazonaws:aws-android-sdk-core:2.2.15'
+    compile 'com.amazonaws:aws-android-sdk-s3:2.2.15'
 }
 
 apply plugin: 'com.google.gms.google-services'
