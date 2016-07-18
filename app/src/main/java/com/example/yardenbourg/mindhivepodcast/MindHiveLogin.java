@@ -1,202 +1,208 @@
 package com.example.yardenbourg.mindhivepodcast;
 
-import android.accounts.AccountManager;
+import android.content.Intent;
+import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.app.ProgressDialog;
-import android.content.Intent;
 import android.util.Log;
-import android.view.View;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.amazonaws.auth.CognitoCachingCredentialsProvider;
 import com.amazonaws.regions.Regions;
-import com.google.android.gms.auth.GoogleAuthUtil;
-import com.google.android.gms.auth.api.Auth;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.auth.api.signin.GoogleSignInResult;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesUtil;
-import com.google.android.gms.common.Scopes;
-import com.google.android.gms.common.SignInButton;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.OptionalPendingResult;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.common.api.Scope;
-import com.google.android.gms.common.api.Status;
+
+import com.facebook.AccessToken;
+import com.facebook.AccessTokenTracker;
+import com.facebook.CallbackManager;
+import com.facebook.FacebookCallback;
+import com.facebook.FacebookException;
+import com.facebook.appevents.AppEventsLogger;
+import com.facebook.login.LoginResult;
+import com.facebook.login.widget.LoginButton;
+
+import com.facebook.FacebookSdk;
 
 import java.util.HashMap;
 import java.util.Map;
 
+public class MindHiveLogin extends AppCompatActivity {
 
-public class MindHiveLogin extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener,
-                                                                View.OnClickListener {
+    static final String TAG = "MindHiveLogin";
 
-    // Tag to identify the log message
-    public static final String TAG = "ServerAuthCodeActivity";
-    // Success code to be returned from our sign in/authentication activity
-    private static final int RC_GET_AUTH_CODE = 9003;
+    private TextView statusTextView;
+    private LoginButton loginButton;
+    private CallbackManager callbackManager;
+    private AccessTokenTracker accessTokenTracker;
 
+    static AccessToken accessToken;
 
-    private GoogleApiClient mGoogleApiClient;
-    private TextView mAuthCodeTextView;
+    static CognitoCachingCredentialsProvider credentialsProvider;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.mindhive_login);
-
-        // Instantiating the View
-        mAuthCodeTextView = (TextView) findViewById(R.id.detail);
-
-        // Button click listeners
-        findViewById(R.id.sign_in_button).setOnClickListener(this);
-        findViewById(R.id.sign_out_button).setOnClickListener(this);
-        findViewById(R.id.disconnect_button).setOnClickListener(this);
-
 
         /**
-         * Configure sign-in to request offline access to the user's ID, basic
-         * profile, and Google Drive. The first time you request a code you will
-         * be able to exchange it for an access token and refresh token, which
-         * you should store. In subsequent calls, the code will only result in
-         * an access token. By asking for profile access (through
-         * DEFAULT_SIGN_IN) you will also get an ID Token as a result of th
-         * code exchange.
+         * Initialising the Facebook SDK
          */
-        String serverClientId = getString(R.string.server_client_id);
+        FacebookSdk.sdkInitialize(getApplicationContext());
 
-        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestScopes(new Scope(Scopes.DRIVE_APPFOLDER))
-                .requestServerAuthCode(serverClientId)
-                .requestEmail()
-                .build();
+        // Initialising the callback manager
+        callbackManager = CallbackManager.Factory.create();
 
-        // Build GoogleAPIClient with the Google Sign-In API and the above options.
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .enableAutoManage(this, this)
-                .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
-                .build();
+        setContentView(R.layout.mindhive_login);
+
+        // Initialising the Credentials Provider
+        initCognitoCachingCredentialsProvider();
+
+        // If no change to the AccessToken has been made, start the login flow with the current AccessToken
+        startLoginFlow();
     }
 
-    /**
-     * Start the retrieval process for a server auth code.  If requested, ask for a refresh
-     * token.  Otherwise, only get an access token if a refresh token has been previously
-     * retrieved.  Getting a new access token for an existing grant does not require
-     * user consent.
-     */
-    private void getAuthCode() {
-
-        Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
-        startActivityForResult(signInIntent, RC_GET_AUTH_CODE);
-    }
-
-    /**
-     * Method that handles the result from the activity started by the above Intent.
-     * It gets the auth code if successful and displays it in the TextView. Here the authentication
-     * code is also sent to the Amazon server to be validated.
-     */
     @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        callbackManager.onActivityResult(requestCode, resultCode, data);
+    }
 
-        if (requestCode == RC_GET_AUTH_CODE) {
-            GoogleSignInResult result = Auth.GoogleSignInApi.getSignInResultFromIntent(data);
-            Log.d(TAG, "onActivityResult:GET_AUTH_CODE:success:" + result.getStatus().isSuccess());
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        accessTokenTracker.stopTracking();
+    }
 
-            if (result.isSuccess()) {
+    /**
+     * This method checks to see if an AccessToken has been given already and if there is
+     * a valid Cognito Identity, if so, the user is sent to the next Activity; if not,
+     * the usual login flow is started and an AccessToken is given.
+     */
+    private void startLoginFlow() {
 
-                GoogleSignInAccount acct = result.getSignInAccount();
+        accessToken = AccessToken.getCurrentAccessToken();
 
-                String authCode = acct.getServerAuthCode();
+        // If there is no AccessToken...
+        if (accessToken == null) {
 
-                mAuthCodeTextView.setText(getString(R.string.auth_code_fmt, authCode));
-                updateUI(true);
+            // Show the login screen so that one can be provided
+            initLoginUI();
 
+        } else {
 
-                // TODO(user): send code to server and exchange for access/refresh/ID tokens.
-            } else {
+            // Setting the Credentials, and refreshing the credentialsProvider
+            setCognitoLogins(accessToken);
+            new RefreshCredentials().execute();
 
-                // Show signed-out UI.
-                updateUI(false);
-            }
+            // Sending the user to the next Activity
+            Intent mainActivityIntent = new Intent(getApplicationContext(), MindHiveMain.class);
+
+            startActivity(mainActivityIntent);
         }
     }
 
     /**
-     * Sign out method that signs the user out and updates the UI.
+     * Initialising the login UI
      */
-    private void signOut() {
-        Auth.GoogleSignInApi.signOut(mGoogleApiClient).setResultCallback (
-                new ResultCallback<Status>() {
-                    @Override
-                    public void onResult(Status status) {
-                        Log.d(TAG, "signOut:onResult:" + status);
-                        updateUI(false);
-                    }
-                });
+    private void initLoginUI() {
+
+        // Instantiating the Views
+        statusTextView = (TextView) findViewById(R.id.status);
+        loginButton = (LoginButton) findViewById(R.id.login_button);
+        loginButton.setReadPermissions("email");
+
+        // Setting up the Facebook Login Button to handle
+        loginButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+
+            @Override
+            public void onSuccess(LoginResult loginResult) {
+
+                accessToken = loginResult.getAccessToken();
+
+                if (accessToken != null) {
+
+                    Log.i("onSuccess", "Access Token is valid!");
+
+                    // Setting the login token in the credentialsProvider
+                    setCognitoLogins(accessToken);
+
+                    //... and refreshing it in an Async task
+                    new RefreshCredentials().execute();
+
+                    //TODO: Send the Credentials and AccessToken to next Activity as well.
+                    // Sending the user to the next Activity
+                    Intent mainActivityIntent = new Intent(getApplicationContext(), MindHiveMain.class);
+
+                    startActivity(mainActivityIntent);
+                }
+            }
+
+            @Override
+            public void onCancel() {
+
+                statusTextView.setText(R.string.login_cancel_message);
+                updateUI(false);
+            }
+
+            @Override
+            public void onError(FacebookException error) {
+
+                statusTextView.setText(R.string.login_failed_message);
+                updateUI(false);
+            }
+        });
     }
 
     /**
-     * Method to revoke access, i.e. erase the saved user credentials so they do not get
-     * automatically signed in.
+     * Method that initialises the CognitoCachingCredentialsProvider so our app can communicate
+     * with AWS
      */
-    private void revokeAccess() {
-        Auth.GoogleSignInApi.revokeAccess(mGoogleApiClient).setResultCallback(
-                new ResultCallback<Status>() {
-                    @Override
-                    public void onResult(Status status) {
-                        Log.d(TAG, "revokeAccess:onResult:" + status);
-                        updateUI(false);
-                    }
-                });
+    private void initCognitoCachingCredentialsProvider() {
+
+        // Initializing the Amazon Credentials Provider
+        credentialsProvider = new CognitoCachingCredentialsProvider (
+                getApplicationContext(),
+                "611688356871", // AWS Account ID
+                "us-east-1:b97a7eee-bfca-4c77-bccb-e422475f8613", // Identity Pool ID
+                "arn:aws:iam::611688356871:role/Cognito_mind_hive_identity_poolUnauth_Role", // Unauthenticated Role
+                "arn:aws:iam::611688356871:role/Cognito_mind_hive_identity_poolAuth_Role", // Authenticated Role
+                Regions.US_EAST_1 // Region
+        );
     }
 
     /**
-     * Method to handle failed connections
+     * Puts the given AccessToken into the logins Map, and sets it in the credentialsProvider
+     * @param accessToken
      */
-    @Override
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-        // An unresolvable error has occurred and Google APIs (including Sign-In) will not
-        // be available.
-        Log.d(TAG, "onConnectionFailed:" + connectionResult);
+    private void setCognitoLogins(AccessToken accessToken) {
+
+        Map<String, String> logins = new HashMap<>();
+        logins.put("graph.facebook.com", accessToken.getToken());
+        credentialsProvider.setLogins(logins);
     }
 
     /**
-     * Method to update the UI to show sign-in or sign-out options.
+     * Updates the UI to show sign-in or sign-out options.
      */
     private void updateUI(boolean signedIn) {
 
         if (signedIn) {
 
-            ((TextView) findViewById(R.id.status)).setText(R.string.signed_in);
-            findViewById(R.id.sign_in_button).setVisibility(View.GONE);
-            findViewById(R.id.sign_out_and_disconnect).setVisibility(View.VISIBLE);
-
+            statusTextView.setText(R.string.logged_in);
         } else {
 
-            ((TextView) findViewById(R.id.status)).setText(R.string.signed_out);
-            mAuthCodeTextView.setText(getString(R.string.auth_code_fmt, "null"));
-            findViewById(R.id.sign_in_button).setVisibility(View.VISIBLE);
-            findViewById(R.id.sign_out_and_disconnect).setVisibility(View.GONE);
+            statusTextView.setText(R.string.logged_out);
         }
     }
 
-    @Override
-    public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.sign_in_button:
-                getAuthCode();
-                break;
-            case R.id.sign_out_button:
-                signOut();
-                break;
-            case R.id.disconnect_button:
-                revokeAccess();
-                break;
+    /**
+     * Refreshes the credentialsProvider in a background thread, as it requires a network request
+     */
+    private class RefreshCredentials extends AsyncTask<Void, Void, Void> {
+
+        @Override
+        protected Void doInBackground(Void... params) {
+
+            credentialsProvider.refresh();
+            return null;
         }
     }
 }
