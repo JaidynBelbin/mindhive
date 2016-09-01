@@ -1,6 +1,5 @@
 package com.example.yardenbourg.mindhivepodcast;
 
-import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
@@ -16,6 +15,8 @@ import android.widget.ListView;
 
 import com.amazonaws.auth.CognitoCachingCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -33,10 +34,6 @@ public class MindHiveFragment extends Fragment {
     private static ArrayList<String> mindhiveTitles;
     private AmazonS3Client s3Client;
     private CognitoCachingCredentialsProvider credentialsProvider;
-    private ListView mindHivePodcastList;
-    private boolean arrayDoesExist;
-    private boolean bucketHasChanged;
-    private ProgressDialog mProgressDialog;
 
     public MindHiveFragment() {
 
@@ -63,8 +60,7 @@ public class MindHiveFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
 
         final View rootView = inflater.inflate(R.layout.mindhive_list_view_fragment, container, false);
-
-        mindHivePodcastList = (ListView) rootView.findViewById(R.id.mindhiveListView);
+        ListView mindHivePodcastList = (ListView) rootView.findViewById(R.id.mindhiveListView);
 
         // If there were no saved titles...
         if (mindhiveTitles.isEmpty()) {
@@ -123,13 +119,8 @@ public class MindHiveFragment extends Fragment {
 
             // Convert it to an ArrayList and display the contents.
             mindhiveTitles = new ArrayList<>(dataFromSharedPrefs);
-            arrayDoesExist = true;
 
             return mindhiveTitles;
-
-        } else {
-
-            arrayDoesExist = false;
         }
 
         return new ArrayList<>();
@@ -171,6 +162,19 @@ public class MindHiveFragment extends Fragment {
         prefs.apply();
     }
 
+    public ArrayList<String> formatMindhiveTitles(ArrayList<String> arrayList) {
+
+        ArrayList<String> formattedTitles = new ArrayList<>();
+
+        for (int i = 0; i < arrayList.size(); i++) {
+
+            String title = arrayList.get(i);
+
+            formattedTitles.add(StringUtils.substringBetween(title, "mindhive podcast/", ".mp3"));
+        }
+        return formattedTitles;
+    }
+
     /**
      * Downloads the podcast titles from the S3 bucket with the specified prefix.
      * This class is called when there are no titles in SharedPreferences, and the ArrayAdapter needs
@@ -188,6 +192,7 @@ public class MindHiveFragment extends Fragment {
 
             // If no Adapter has been set, i.e. this is the first time the podcasts are loading.
             if (mindhiveTitles != null) {
+                mindhiveTitles = formatMindhiveTitles(mindhiveTitles);
                 mindhiveAdapter = new PodcastAdapter(getActivity(), mindhiveTitles);
             }
 
@@ -211,12 +216,11 @@ public class MindHiveFragment extends Fragment {
         @Override
         protected void onPostExecute(ArrayList<String> arrayList) {
 
-            // Clearing the old data and notifying the Adapter that the data has changed.
+            // Clearing the old data, formatting the new data, and notifying the Adapter that the data has changed.
             mindhiveTitles.clear();
-            mindhiveTitles.addAll(arrayList);
+            mindhiveTitles.addAll(formatMindhiveTitles(arrayList));
             mindhiveAdapter.notifyDataSetChanged();
 
-            // Then save the new data.
             saveData(mindhiveTitles);
         }
     }

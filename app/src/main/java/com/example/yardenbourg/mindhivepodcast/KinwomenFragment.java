@@ -15,6 +15,8 @@ import android.widget.ListView;
 import com.amazonaws.auth.CognitoCachingCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
@@ -32,9 +34,6 @@ public class KinwomenFragment extends Fragment {
     private static ArrayList<String> kinwomenTitles;
     private AmazonS3Client s3Client;
     private CognitoCachingCredentialsProvider credentialsProvider;
-    private boolean arrayDoesExist;
-    private boolean bucketHasChanged;
-
 
     public KinwomenFragment() {
 
@@ -119,14 +118,9 @@ public class KinwomenFragment extends Fragment {
 
             // Convert it to an ArrayList and display the contents.
             kinwomenTitles = new ArrayList<>(dataFromSharedPrefs);
-            arrayDoesExist = true;
             return kinwomenTitles;
 
-        } else {
-
-            arrayDoesExist = false;
         }
-
         return new ArrayList<>();
     }
 
@@ -165,10 +159,24 @@ public class KinwomenFragment extends Fragment {
         prefs.apply();
     }
 
+    public ArrayList<String> formatKinwomenTitles(ArrayList<String> arrayList) {
+
+        ArrayList<String> formattedTitles = new ArrayList<>();
+
+        for (int i = 0; i < arrayList.size(); i++) {
+
+            String title = arrayList.get(i);
+
+            formattedTitles.add(StringUtils.substringBetween(title, "KIN Women Podcast/", ".mp3"));
+        }
+
+        return formattedTitles;
+    }
+
     /**
-     * Async class that uses the credentialsProvider and the AmazonS3Client to access the bucket
-     * the podcasts are stored in, reads each object, and puts the key (basically the file name)
-     * into an ArrayList that can be read from later on.
+     * Downloads the podcast titles from the S3 bucket with the specified prefix.
+     * This class is called when there are no titles in SharedPreferences, and the ArrayAdapter needs
+     * to be created from scratch.
      */
     private class FetchKinwomenPodcasts extends AsyncTask<Void, Void, ArrayList<String>> {
 
@@ -181,13 +189,21 @@ public class KinwomenFragment extends Fragment {
         protected void onPostExecute(ArrayList<String> kinwomenTitles) {
 
             if (kinwomenTitles != null) {
+                // Formatting the titles to get rid of the bucket prefix and .mp3 suffix.
+                kinwomenTitles = formatKinwomenTitles(kinwomenTitles);
                 kinwomenAdapter = new PodcastAdapter(getActivity(), kinwomenTitles);
             }
 
+            // Saving the data
             saveData(kinwomenTitles);
         }
     }
 
+    /**
+     * Downloads the podcast titles from the S3 bucket with the specified prefix.
+     * This class is called when the bucket needs updating, as such, it clears the current ArrayList,
+     * adds the new data, and notifies the Adapter of the change.
+     */
     private class UpdateKinwomenPodcasts extends AsyncTask<Void, Void, ArrayList<String>> {
 
         @Override
@@ -198,12 +214,14 @@ public class KinwomenFragment extends Fragment {
         @Override
         protected void onPostExecute(ArrayList<String> arrayList) {
 
-            // Clearing out the old data from the list, and notifying the Adapter the data has changed.
+            // Clearing out the old data from the list, formatting the new data,
+            // and notifying the Adapter the data has changed.
             kinwomenTitles.clear();
-            kinwomenTitles.addAll(arrayList);
+            kinwomenTitles.addAll(formatKinwomenTitles(arrayList));
+
             kinwomenAdapter.notifyDataSetChanged();
 
-            saveData(arrayList);
+            saveData(kinwomenTitles);
         }
     }
 }

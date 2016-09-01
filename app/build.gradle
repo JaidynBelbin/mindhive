@@ -33,6 +33,7 @@ dependencies {
     compile 'com.amazonaws:aws-android-sdk-s3:2.2.15'
     compile 'com.amazonaws:aws-android-sdk-sqs:2.2.+'
     compile 'com.google.firebase:firebase-auth:9.4.0'
+    compile 'org.apache.commons:commons-lang3:3.4'
 }
 
 apply plugin: 'com.google.gms.google-services'
