@@ -2,34 +2,36 @@ package com.example.yardenbourg.mindhivepodcast;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.design.widget.TabLayout;
+import android.support.v4.view.ViewPager;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
-import android.widget.TextView;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.CognitoCachingCredentialsProvider;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.sqs.AmazonSQSClient;
+import com.amazonaws.services.sqs.model.BatchResultErrorEntry;
+import com.amazonaws.services.sqs.model.DeleteMessageBatchRequest;
+import com.amazonaws.services.sqs.model.DeleteMessageBatchRequestEntry;
+import com.amazonaws.services.sqs.model.DeleteMessageBatchResult;
+import com.amazonaws.services.sqs.model.Message;
+import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class MindHiveMainScreen extends AppCompatActivity {
 
-    public static final String LOG_TAG = MindHiveMainScreen.class.getSimpleName();
-
+    // Objects used to connect to and download from, Amazon S3.
     private static CognitoCachingCredentialsProvider credentialsProvider;
-    public static AmazonS3Client s3Client;
-    private static TransferUtility transferUtility;
-
-    private TextView infoView;
-    private TextView keysView;
+    private static AmazonSQSClient sqsClient;
+    private static boolean bucketHasChanged;
+    private MindHiveFragment mindhiveFragment;
+    private KinwomenFragment kinwomenFragment;
+    private String token;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,92 +39,174 @@ public class MindHiveMainScreen extends AppCompatActivity {
 
         setContentView(R.layout.mindhive_main_screen);
 
-        // Initialising and returning the credentialsProvider
-        credentialsProvider = getCredProvider();
+        setupActionBar();
 
-        infoView = (TextView)findViewById(R.id.infoView);
-        keysView = (TextView)findViewById(R.id.keysView);
+        // Initialising the CognitoCachingCredentialsProvider
+        initCredentialsProvider();
 
-        // Using the token received from Google to login to Amazon Cognito
-        loginWithToken();
+        // Retrieving the Google ID token from the Intent
+        token = getIntent().getStringExtra("ID Token");
 
-        new ListKeys().execute();
+        // Using the token passed in the Intent to log in to the credentialsProvider above.
+        if (token != "") {
+            loginWithToken(token);
+        }
+
+        // Creating the ViewPager...
+        ViewPager viewPager = (ViewPager) findViewById(R.id.viewpager);
+
+        // Instantiating the Fragments to use down below...
+        mindhiveFragment = MindHiveFragment.newInstance(getCredentialsProvider());
+        kinwomenFragment = KinwomenFragment.newInstance(getCredentialsProvider());
+
+        //... and adding them to the ViewPager which will also define the number of tabs.
+        setupViewPager(viewPager);
+
+        // Polling the SQS queue for messages...
+        new PollMessageQueue().execute();
+
+        // Creating the TabLayout, and assigning the ViewPager to it by calling
+        // setupWithViewPager(), which basically connects the two.
+        TabLayout tabLayout = (TabLayout) findViewById(R.id.tabs);
+        tabLayout.setupWithViewPager(viewPager);
     }
 
-    private class ListKeys extends AsyncTask<Void, Void, ArrayList<S3ObjectSummary>> {
+    /**
+     * Sets up the ViewPager with its Adapter
+     * @param viewPager
+     */
+    private void setupViewPager(ViewPager viewPager) {
 
-        ArrayList<S3ObjectSummary> objectKeys = new ArrayList<>();
+        ViewPagerAdapter adapter = new ViewPagerAdapter(getSupportFragmentManager());
 
-        @Override
-        protected void onPreExecute() {
+        if (mindhiveFragment != null && kinwomenFragment != null) {
 
-            infoView.setText("Bucket Contents: ");
-            super.onPreExecute();
+            // Adding both Fragments, and the titles of each
+            adapter.addFragment(mindhiveFragment, "Mindhive Podcast");
+            adapter.addFragment(kinwomenFragment, "Kinwomen Podcast");
         }
 
-        @Override
-        protected ArrayList<S3ObjectSummary> doInBackground(Void... params) {
+        // Setting the adapter on the ViewPager
+        viewPager.setAdapter(adapter);
+    }
 
-            if (s3Client == null) {
+    /**
+     * Sets up the Action Bar to display the logged in users name
+     */
+    private void setupActionBar() {
 
-                s3Client = new AmazonS3Client(credentialsProvider);
+        // Handling the text in the ActionBar
+        if (getSupportActionBar() != null) {
+
+            ActionBar actionBar = getSupportActionBar();
+
+            // Getting the users name from the Intent
+            String userName = getIntent().getStringExtra("UserName");
+
+            if (userName != null) {
+
+                // Displaying the users name in the actionBar
+                actionBar.setTitle("Welcome " + userName);
+
+            } else {
+
+                actionBar.setTitle("Choose a Podcast");
             }
+        }
+    }
 
-            try {
+    private void initCredentialsProvider() {
 
-                ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
-                        .withBucketName("themindhive")
-                        .withPrefix("mindhive podcast/");
+        credentialsProvider = new CognitoCachingCredentialsProvider(
+                getApplicationContext(),
+                getString(R.string.identity_pool_id),
+                Regions.US_EAST_1
+        );
+    }
 
-                ObjectListing objectListing;
+    /**
+     * Returns a CognitoCachingCredentialsProvider instance ecto use in the
+     * Fragments
+     * @return
+     */
+    private CognitoCachingCredentialsProvider getCredentialsProvider() {
+        return credentialsProvider;
+    }
 
-                do {
-                    objectListing = s3Client.listObjects(listObjectsRequest);
+    /**
+     * Initialises and returns an AmazonSQSClient instance
+     * @return sqsClient
+     */
+    private AmazonSQSClient getSQSClient() {
+        sqsClient = new AmazonSQSClient(getCredentialsProvider());
+        return sqsClient;
+    }
 
-                    for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
+    /**
+     * Polls the SQS queue attached to the bucket for messages. If there are any, it means the bucket
+     * has either had an item added, or deleted. Either way, the list of podcasts needs
+     * to be refreshed. If no messages exist, then the saved list of podcasts in SharedPreferences
+     * is still current. It also deletes the messages once the result has been found.
+     * @return
+     */
+    private boolean checkForBucketEvents() {
 
-                        // Adding each objectSummary to the list
-                        objectKeys.add(objectSummary);
+        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(getString(R.string.sqs_queue_url))
+                .withWaitTimeSeconds(5);
+
+        List<Message> messages = getSQSClient().receiveMessage(receiveMessageRequest).getMessages();
+        List<DeleteMessageBatchRequestEntry> messagesToDelete = new ArrayList<>();
+
+        if (!messages.isEmpty()) {
+
+            for (Message message : messages) {
+
+                // Adding the message info to the ArrayList of messages to delete.
+                messagesToDelete.add(new DeleteMessageBatchRequestEntry(message.getMessageId(), message.getReceiptHandle()));
+
+                DeleteMessageBatchRequest request = new DeleteMessageBatchRequest(getString(R.string.sqs_queue_url), messagesToDelete);
+                DeleteMessageBatchResult result = getSQSClient().deleteMessageBatch(request);
+
+                boolean successful = result.getFailed().size() <= 0;
+
+                if (!successful) {
+                    for (BatchResultErrorEntry failed : result.getFailed() ) {
+                        Log.d("checkForBucketEvents", "Commit failed reason: " + failed.getMessage());
                     }
-
-                    listObjectsRequest.setMarker(objectListing.getNextMarker());
-
-                } while (objectListing.isTruncated());
-
-            } catch(AmazonServiceException ex) {
-
-                Log.d(LOG_TAG, "Caught an AmazonServiceException, " +
-                        "which means your request made it " +
-                        "to Amazon S3, but was rejected with an error response " +
-                        "for some reason.");
-                Log.d(LOG_TAG, "Error Message:    " + ex.getMessage());
-                Log.d(LOG_TAG, "HTTP Status Code: " + ex.getStatusCode());
-                Log.d(LOG_TAG, "AWS Error Code:   " + ex.getErrorCode());
-                Log.d(LOG_TAG, "Error Type:       " + ex.getErrorType());
-                Log.d(LOG_TAG, "Request ID:       " + ex.getRequestId());
-
-            } catch(AmazonClientException ex2) {
-
-                Log.d(LOG_TAG, "Caught an AmazonClientException, " +
-                        "which means the client encountered " +
-                        "an internal error while trying to communicate" +
-                        " with S3, " +
-                        "such as not being able to access the network.");
-                Log.d(LOG_TAG, "Error Message: " + ex2.getMessage());
+                } else {
+                    Log.d("checkForBucketEvents", "Messages successfully deleted");
+                }
             }
 
-            return objectKeys;
+            Log.v("checkForBucketEvents", "Messages found!");
+            return true; // A message exists
+        }
+
+        Log.v("checkForBucketEvents", "No messages exist");
+        return false; // A message does not exist
+    }
+
+    /**
+     * Polling the SQS queue asynchronously
+     */
+    private class PollMessageQueue extends AsyncTask<Void, Void, Boolean> {
+
+        @Override
+        protected Boolean doInBackground(Void... voids) {
+
+            return checkForBucketEvents();
         }
 
         @Override
-        protected void onPostExecute(ArrayList<S3ObjectSummary> objectKeys) {
+        protected void onPostExecute(Boolean aBoolean) {
 
-            for (S3ObjectSummary summary : objectKeys) {
+            if (aBoolean) {
+                kinwomenFragment.receiveBucketState(true);
+                mindhiveFragment.receiveBucketState(true);
 
-                keysView.append(summary.getKey() + "\n");
+            } else {
+                Log.v("PollMessageQueue", "Podcasts do not need updating.");
             }
-
-            super.onPostExecute(objectKeys);
         }
     }
 
@@ -130,39 +214,13 @@ public class MindHiveMainScreen extends AppCompatActivity {
      * Logs into Amazon AWS with the token provided from Google, retrieved from the Intent that started
      * this Activity
      */
-    private void loginWithToken() {
-
-        String token = getIntent().getStringExtra("ID Token");
-
-        if (token == null || token == "") {
-
-            // If there is no token, send the user back to the main screen.
-            finish();
-
-        } else {
-
-            setCredentials(token);
-            new RefreshCredentials().execute();
-        }
+    public void loginWithToken(String token) {
+        setCredentials(token);
+        new RefreshCredentials().execute();
     }
 
     /**
-     * Initialises and returns the credentialsProvider
-     */
-    public CognitoCachingCredentialsProvider getCredProvider() {
-
-        // Initializing the Amazon Cognito Credentials provider
-        CognitoCachingCredentialsProvider credentialsProvider = new CognitoCachingCredentialsProvider(
-                getApplicationContext(),
-                getString(R.string.identity_pool_id), // Identity Pool ID
-                Regions.US_EAST_1 // Example Region
-        );
-
-        return credentialsProvider;
-    }
-
-    /**
-     * Sets the credentials
+     * Sets the credentials into the logins map in the credentialsProvider
      */
     private void setCredentials(String token) {
 
@@ -174,17 +232,14 @@ public class MindHiveMainScreen extends AppCompatActivity {
     /**
      * Refreshes the credentialsProvider, which requires a network request
      */
-    private class RefreshCredentials extends AsyncTask<Void, Void, String> {
+    private class RefreshCredentials extends AsyncTask<Void, Void, Void> {
 
         @Override
-        protected String doInBackground(Void... params) {
+        protected Void doInBackground(Void... params) {
 
             credentialsProvider.refresh();
 
-            // Getting the identityID of the user
-            String identityID = credentialsProvider.getIdentityId();
-
-            return identityID;
+            return null;
         }
     }
 }
