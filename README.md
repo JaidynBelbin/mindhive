@@ -1,9 +1,11 @@
 # mindhive
 Application for the MindHive Podcasting Network
 
-Logging in is now complete, users are automatically signed in when they come back. 
-Both podcasts are displayed in their separate tabs, and the bucket is configured to notify the app when the podcasts need updating, i.e. a new one has been added.
+A bunch of progress has been made since last writing this Readme. Google Login is now integrated, and the bucket
+where the files are stored can be successfully accessed and each Object's key (ie. File name) printed out.
 
-Next will be sorting them numerically.
+Next steps are working out the UI. 
+
+Feel free to pitch in and help!
 
 Jaidyn
