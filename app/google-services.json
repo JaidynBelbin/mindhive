@@ -1,7 +1,9 @@
 {
   "project_info": {
     "project_number": "1034544032360",
-    "project_id": "mindhivepodcast"
+    "firebase_url": "https://mindhivepodcast.firebaseio.com",
+    "project_id": "mindhivepodcast",
+    "storage_bucket": "mindhivepodcast.appspot.com"
   },
   "client": [
     {
@@ -13,12 +15,16 @@
       },
       "oauth_client": [
         {
-          "client_id": "1034544032360-77i32koq929kdrqsj82uhd39vbqii6t2.apps.googleusercontent.com",
+          "client_id": "1034544032360-3tfq2u75cnblvqq93dm7br1dhdhep1k4.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.yardenbourg.mindhivepodcast",
             "certificate_hash": "033FA382D553DC97328C7F549570FB990D0F10ED"
           }
+        },
+        {
+          "client_id": "1034544032360-063386g4qe9ggd7sn6i10kmiosdeeo8f.apps.googleusercontent.com",
+          "client_type": 3
         },
         {
           "client_id": "1034544032360-323ka56tm8iokpc2rhc7na08h70mcdcq.apps.googleusercontent.com",
@@ -35,11 +41,16 @@
           "status": 1
         },
         "appinvite_service": {
-          "status": 1,
-          "other_platform_oauth_client": []
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1034544032360-063386g4qe9ggd7sn6i10kmiosdeeo8f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         },
         "ads_service": {
-          "status": 1
+          "status": 2
         }
       }
     }
