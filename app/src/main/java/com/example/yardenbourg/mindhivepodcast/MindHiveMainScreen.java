@@ -154,6 +154,7 @@ public class MindHiveMainScreen extends AppCompatActivity {
         ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(getString(R.string.sqs_queue_url))
                 .withWaitTimeSeconds(5);
 
+        // Lists to hold the actual messages, and the message delete requests
         List<Message> messages = getSQSClient().receiveMessage(receiveMessageRequest).getMessages();
         List<DeleteMessageBatchRequestEntry> messagesToDelete = new ArrayList<>();
 
@@ -164,15 +165,18 @@ public class MindHiveMainScreen extends AppCompatActivity {
                 // Adding the message info to the ArrayList of messages to delete.
                 messagesToDelete.add(new DeleteMessageBatchRequestEntry(message.getMessageId(), message.getReceiptHandle()));
 
+                // Executing the DeleteMessageBatchRequest
                 DeleteMessageBatchRequest request = new DeleteMessageBatchRequest(getString(R.string.sqs_queue_url), messagesToDelete);
                 DeleteMessageBatchResult result = getSQSClient().deleteMessageBatch(request);
 
                 boolean successful = result.getFailed().size() <= 0;
 
+                // Logging the result of the deletion
                 if (!successful) {
                     for (BatchResultErrorEntry failed : result.getFailed() ) {
                         Log.d("checkForBucketEvents", "Commit failed reason: " + failed.getMessage());
                     }
+
                 } else {
                     Log.d("checkForBucketEvents", "Messages successfully deleted");
                 }
@@ -194,12 +198,15 @@ public class MindHiveMainScreen extends AppCompatActivity {
         @Override
         protected Boolean doInBackground(Void... voids) {
 
+            // This method returns a boolean representing if messages were found in the SQS queue.
             return checkForBucketEvents();
         }
 
         @Override
         protected void onPostExecute(Boolean aBoolean) {
 
+            // If the response was true, call the respective Fragment methods with true passed as the
+            // argument.
             if (aBoolean) {
                 kinwomenFragment.receiveBucketState(true);
                 mindhiveFragment.receiveBucketState(true);

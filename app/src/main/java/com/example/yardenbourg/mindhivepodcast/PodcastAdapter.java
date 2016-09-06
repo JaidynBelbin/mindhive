@@ -84,12 +84,4 @@ public class PodcastAdapter extends ArrayAdapter<String> {
 
         return convertView;
     }
-
-    /**
-     * Sets the ArrayList of this Adapter
-     * @param array
-     */
-    public void setPodcastArray(ArrayList<String> array) {
-        this.podcastArray = array;
-    }
 }

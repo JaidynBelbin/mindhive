@@ -19,6 +19,7 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -119,7 +120,7 @@ public class MindHiveFragment extends Fragment {
 
             // Convert it to an ArrayList and display the contents.
             mindhiveTitles = new ArrayList<>(dataFromSharedPrefs);
-
+            Collections.sort(mindhiveTitles, new FragmentUtilities.NumericalPodcastSort());
             return mindhiveTitles;
         }
 
@@ -169,9 +170,15 @@ public class MindHiveFragment extends Fragment {
         for (int i = 0; i < arrayList.size(); i++) {
 
             String title = arrayList.get(i);
+            String formattedTitle = StringUtils.substringBetween(title, "mindhive podcast/", ".mp3");
 
-            formattedTitles.add(StringUtils.substringBetween(title, "mindhive podcast/", ".mp3"));
+            if (formattedTitle != null) {
+                formattedTitles.add(formattedTitle);
+            }
         }
+
+        Collections.sort(formattedTitles, new FragmentUtilities.NumericalPodcastSort());
+
         return formattedTitles;
     }
 
@@ -193,8 +200,9 @@ public class MindHiveFragment extends Fragment {
             // If no Adapter has been set, i.e. this is the first time the podcasts are loading.
             if (mindhiveTitles != null) {
                 mindhiveTitles = formatMindhiveTitles(mindhiveTitles);
-                mindhiveAdapter = new PodcastAdapter(getActivity(), mindhiveTitles);
             }
+
+            mindhiveAdapter = new PodcastAdapter(getActivity(), mindhiveTitles);
 
             saveData(mindhiveTitles);
         }
@@ -216,12 +224,13 @@ public class MindHiveFragment extends Fragment {
         @Override
         protected void onPostExecute(ArrayList<String> arrayList) {
 
-            // Clearing the old data, formatting the new data, and notifying the Adapter that the data has changed.
-            mindhiveTitles.clear();
-            mindhiveTitles.addAll(formatMindhiveTitles(arrayList));
-            mindhiveAdapter.notifyDataSetChanged();
-
-            saveData(mindhiveTitles);
+            if (arrayList != null) {
+                // Clearing the old data, formatting the new data, and notifying the Adapter that the data has changed.
+                mindhiveTitles.clear();
+                mindhiveTitles.addAll(formatMindhiveTitles(arrayList));
+                mindhiveAdapter.notifyDataSetChanged();
+                saveData(mindhiveTitles);
+            }
         }
     }
 }

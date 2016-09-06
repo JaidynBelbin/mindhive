@@ -18,6 +18,7 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -118,9 +119,11 @@ public class KinwomenFragment extends Fragment {
 
             // Convert it to an ArrayList and display the contents.
             kinwomenTitles = new ArrayList<>(dataFromSharedPrefs);
+            Collections.sort(kinwomenTitles, new FragmentUtilities.NumericalPodcastSort());
             return kinwomenTitles;
 
         }
+
         return new ArrayList<>();
     }
 
@@ -167,9 +170,16 @@ public class KinwomenFragment extends Fragment {
 
             String title = arrayList.get(i);
 
-            formattedTitles.add(StringUtils.substringBetween(title, "KIN Women Podcast/", ".mp3"));
+            // Cutting off the bucket prefix and .mp3 notation from each String
+            String formattedTitle = StringUtils.substringBetween(title, "KIN Women Podcast/", ".mp3");
+
+            // In a few cases, the above code can
+            if (formattedTitle != null) {
+                formattedTitles.add(formattedTitle);
+            }
         }
 
+        Collections.sort(formattedTitles, new FragmentUtilities.NumericalPodcastSort());
         return formattedTitles;
     }
 
@@ -191,8 +201,9 @@ public class KinwomenFragment extends Fragment {
             if (kinwomenTitles != null) {
                 // Formatting the titles to get rid of the bucket prefix and .mp3 suffix.
                 kinwomenTitles = formatKinwomenTitles(kinwomenTitles);
-                kinwomenAdapter = new PodcastAdapter(getActivity(), kinwomenTitles);
             }
+
+            kinwomenAdapter = new PodcastAdapter(getActivity(), kinwomenTitles);
 
             // Saving the data
             saveData(kinwomenTitles);
@@ -214,14 +225,16 @@ public class KinwomenFragment extends Fragment {
         @Override
         protected void onPostExecute(ArrayList<String> arrayList) {
 
-            // Clearing out the old data from the list, formatting the new data,
-            // and notifying the Adapter the data has changed.
-            kinwomenTitles.clear();
-            kinwomenTitles.addAll(formatKinwomenTitles(arrayList));
+            if (arrayList != null) {
+                // Clearing out the old data from the list, formatting the new data,
+                // and notifying the Adapter the data has changed.
+                kinwomenTitles.clear();
+                kinwomenTitles.addAll(formatKinwomenTitles(arrayList));
+                Collections.sort(kinwomenTitles, new FragmentUtilities.NumericalPodcastSort());
 
-            kinwomenAdapter.notifyDataSetChanged();
-
-            saveData(kinwomenTitles);
+                kinwomenAdapter.notifyDataSetChanged();
+                saveData(kinwomenTitles);
+            }
         }
     }
 }
