@@ -1,11 +1,4 @@
 # mindhive
 Application for the MindHive Podcasting Network
 
-A bunch of progress has been made since last writing this Readme. Google Login is now integrated, and the bucket
-where the files are stored can be successfully accessed and each Object's key (ie. File name) printed out.
-
-Next steps are working out the UI. 
-
-Feel free to pitch in and help!
-
-Jaidyn
+Downloading, saving, updating, formatting and sorting the podcast titles is now integrated and tested. Next steps are playing the actual media. It will be minimalistic until I come to a way that works, and then I will fancy it up.
