@@ -120,6 +120,7 @@ public class MindHiveFragment extends Fragment {
 
             // Convert it to an ArrayList and display the contents.
             mindhiveTitles = new ArrayList<>(dataFromSharedPrefs);
+
             Collections.sort(mindhiveTitles, new FragmentUtilities.NumericalPodcastSort());
             return mindhiveTitles;
         }
@@ -163,20 +164,28 @@ public class MindHiveFragment extends Fragment {
         prefs.apply();
     }
 
+    /**
+     * Removes prefix and suffix from each podcast title and sorts by episode number
+     * @param arrayList
+     * @return
+     */
     public ArrayList<String> formatMindhiveTitles(ArrayList<String> arrayList) {
 
         ArrayList<String> formattedTitles = new ArrayList<>();
 
         for (int i = 0; i < arrayList.size(); i++) {
 
+            // Removing the prefix and suffix from each String
             String title = arrayList.get(i);
             String formattedTitle = StringUtils.substringBetween(title, "mindhive podcast/", ".mp3");
 
+            // substringBetween can return null in many occasions, so check before adding to array.
             if (formattedTitle != null) {
                 formattedTitles.add(formattedTitle);
             }
         }
 
+        // Sorting.
         Collections.sort(formattedTitles, new FragmentUtilities.NumericalPodcastSort());
 
         return formattedTitles;
@@ -210,8 +219,8 @@ public class MindHiveFragment extends Fragment {
 
     /**
      * Downloads the podcast titles from the S3 bucket with the specified prefix.
-     * This class is called when the bucket needs updating, as such, it clears the current ArrayList,
-     * adds the new data, and notifies the Adapter of the change.
+     * This class is called when the bucket needs updating, and so, it clears the current ArrayList,
+     * adds the new data, formats it, and notifies the Adapter of the change.
      */
     private class UpdateMindHivePodcasts extends AsyncTask<Void, Void, ArrayList<String>> {
 

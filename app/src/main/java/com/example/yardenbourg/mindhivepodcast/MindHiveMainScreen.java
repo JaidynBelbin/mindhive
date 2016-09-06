@@ -11,14 +11,10 @@ import android.util.Log;
 import com.amazonaws.auth.CognitoCachingCredentialsProvider;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.sqs.AmazonSQSClient;
-import com.amazonaws.services.sqs.model.BatchResultErrorEntry;
-import com.amazonaws.services.sqs.model.DeleteMessageBatchRequest;
-import com.amazonaws.services.sqs.model.DeleteMessageBatchRequestEntry;
-import com.amazonaws.services.sqs.model.DeleteMessageBatchResult;
 import com.amazonaws.services.sqs.model.Message;
+import com.amazonaws.services.sqs.model.PurgeQueueRequest;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -152,37 +148,20 @@ public class MindHiveMainScreen extends AppCompatActivity {
     private boolean checkForBucketEvents() {
 
         ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(getString(R.string.sqs_queue_url))
-                .withWaitTimeSeconds(5);
+                .withWaitTimeSeconds(8);
+        PurgeQueueRequest purgeQueueRequest = new PurgeQueueRequest(getString(R.string.sqs_queue_url));
 
         // Lists to hold the actual messages, and the message delete requests
         List<Message> messages = getSQSClient().receiveMessage(receiveMessageRequest).getMessages();
-        List<DeleteMessageBatchRequestEntry> messagesToDelete = new ArrayList<>();
 
         if (!messages.isEmpty()) {
 
-            for (Message message : messages) {
-
-                // Adding the message info to the ArrayList of messages to delete.
-                messagesToDelete.add(new DeleteMessageBatchRequestEntry(message.getMessageId(), message.getReceiptHandle()));
-
-                // Executing the DeleteMessageBatchRequest
-                DeleteMessageBatchRequest request = new DeleteMessageBatchRequest(getString(R.string.sqs_queue_url), messagesToDelete);
-                DeleteMessageBatchResult result = getSQSClient().deleteMessageBatch(request);
-
-                boolean successful = result.getFailed().size() <= 0;
-
-                // Logging the result of the deletion
-                if (!successful) {
-                    for (BatchResultErrorEntry failed : result.getFailed() ) {
-                        Log.d("checkForBucketEvents", "Commit failed reason: " + failed.getMessage());
-                    }
-
-                } else {
-                    Log.d("checkForBucketEvents", "Messages successfully deleted");
-                }
-            }
-
             Log.v("checkForBucketEvents", "Messages found!");
+
+            // Purging the queue of all messages.
+            getSQSClient().purgeQueue(purgeQueueRequest);
+
+            Log.v("checkForBucketEvents", "Messages deleted.");
             return true; // A message exists
         }
 

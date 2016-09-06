@@ -121,7 +121,6 @@ public class KinwomenFragment extends Fragment {
             kinwomenTitles = new ArrayList<>(dataFromSharedPrefs);
             Collections.sort(kinwomenTitles, new FragmentUtilities.NumericalPodcastSort());
             return kinwomenTitles;
-
         }
 
         return new ArrayList<>();
@@ -162,6 +161,11 @@ public class KinwomenFragment extends Fragment {
         prefs.apply();
     }
 
+    /**
+     * Removes prefix and suffix from each podcast title and sorts them by episode number
+     * @param arrayList
+     * @return
+     */
     public ArrayList<String> formatKinwomenTitles(ArrayList<String> arrayList) {
 
         ArrayList<String> formattedTitles = new ArrayList<>();
@@ -173,7 +177,7 @@ public class KinwomenFragment extends Fragment {
             // Cutting off the bucket prefix and .mp3 notation from each String
             String formattedTitle = StringUtils.substringBetween(title, "KIN Women Podcast/", ".mp3");
 
-            // In a few cases, the above code can
+            // substringBetween can return null in many occasions, so check before adding to array.
             if (formattedTitle != null) {
                 formattedTitles.add(formattedTitle);
             }
@@ -213,7 +217,7 @@ public class KinwomenFragment extends Fragment {
     /**
      * Downloads the podcast titles from the S3 bucket with the specified prefix.
      * This class is called when the bucket needs updating, as such, it clears the current ArrayList,
-     * adds the new data, and notifies the Adapter of the change.
+     * adds the new data, formats it, and notifies the Adapter of the change.
      */
     private class UpdateKinwomenPodcasts extends AsyncTask<Void, Void, ArrayList<String>> {
 
@@ -230,8 +234,6 @@ public class KinwomenFragment extends Fragment {
                 // and notifying the Adapter the data has changed.
                 kinwomenTitles.clear();
                 kinwomenTitles.addAll(formatKinwomenTitles(arrayList));
-                Collections.sort(kinwomenTitles, new FragmentUtilities.NumericalPodcastSort());
-
                 kinwomenAdapter.notifyDataSetChanged();
                 saveData(kinwomenTitles);
             }
