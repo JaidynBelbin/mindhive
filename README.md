@@ -1,4 +1,4 @@
 # mindhive
 Application for the MindHive Podcasting Network
 
-Downloading, saving, updating, formatting and sorting the podcast titles is now integrated and tested. Next steps are playing the actual media. It will be minimalistic until I come to a way that works, and then I will fancy it up.
+Currently on hold. Needs to be cleaned up and re-written, especially the Fragment logic, which is a bit sketchy. Will look into it sometime in the future.
